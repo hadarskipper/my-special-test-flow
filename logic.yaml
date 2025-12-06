@@ -1,176 +1,69 @@
-decision_tree:
-  start_node: call_success_check
-  
+tree:
+  name: "Healthcare Call Processing"
+  start_node: "node1"
   nodes:
-    - name: call_success_check
-      type: condition
-      input: raw_call_data
-      processing_type: status_validation
-      description: Check if call was successfully completed
-      conditions:
-        - condition: call_successful == true
-          next_step: speech_to_text
-        - condition: call_successful == false
-          next_step: exit_null
+    node1:
+      type: "sql"
+      name: "Load Call Metadata"
+      node_config:
+        output_key: "call_metadata"
+      next_node: "node2"
     
-    - name: exit_null
-      type: exit
-      input: success_status
-      output: null
-      processing_type: termination
-      description: Exit workflow for unsuccessful calls
-      next_step: null
+    node2:
+      type: "stt"
+      name: "Speech to Text"
+      node_config:
+        input_key: "audio_file"
+        output_key: "transcribed_text"
+      next_node: "node3"
     
-    - name: speech_to_text
-      type: processing
-      input: raw_call_data
-      output: transcribed_text
-      processing_type: stt_conversion
-      description: Convert audio to text transcription
-      next_step: deidentification
+    node3:
+      type: "deidentify"
+      name: "De-identify Text"
+      node_config:
+        input_key: "transcribed_text"
+        output_key: "deidentified_text"
+      next_node: "node4"
     
-    - name: deidentification
-      type: processing
-      input: transcribed_text
-      output: deidentified_text
-      processing_type: custom_model_pii_removal
-      description: Remove personal identifiable information using custom model
-      next_step: sql_enrichment
+    node4:
+      type: "llm"
+      name: "Check Home Visit Need"
+      node_config:
+        prompt: "Analyze the following healthcare call transcript and determine if a home visit is needed. Respond with 'yes', 'no', or 'unclear'."
+        input_key: "deidentified_text"
+        output_key: "home_visit_recommendation"
+      next_node: "node5"
     
-    - name: sql_enrichment
-      type: processing
-      input: deidentified_text
-      output: enriched_call_data
-      processing_type: sql_metadata_fetch
-      description: Fetch call metadata from database
-      query: "SELECT call_type, patient_id, calling_team, call_duration, timestamp FROM call_metadata WHERE call_id = ?"
-      next_step: call_type_router
+    node5:
+      type: "condition"
+      name: "Home Visit Decision"
+      node_config:
+        condition_key: "home_visit_recommendation"
+        condition_value: "yes"
+        true_node: "node6"
+        false_node: "node7"
     
-    - name: call_type_router
-      type: condition
-      input: enriched_call_data
-      processing_type: call_classification
-      description: Route based on call type classification
-      conditions:
-        - condition: call_type == "post_discharge"
-          next_step: calling_team_router
-        - condition: call_type == "general_checkup"
-          next_step: checkup_sentiment_analysis
-        - condition: call_type == "other"
-          next_step: general_call_summary
+    node6:
+      type: "llm"
+      name: "Generate Care Plan Updates"
+      node_config:
+        prompt: "Based on the healthcare call transcript, generate detailed care plan updates and recommendations for the patient."
+        input_key: "deidentified_text"
+        output_key: "care_plan_updates"
+      next_node: "node8"
     
-    - name: calling_team_router
-      type: condition
-      input: routed_call_type
-      processing_type: team_based_routing
-      description: Route post-discharge calls by calling team
-      conditions:
-        - condition: calling_team == "care_mgmt"
-          next_step: home_visit_detection
-        - condition: calling_team == "clinical"
-          next_step: medication_adherence_check
-        - condition: calling_team == "scheduling"
-          next_step: followup_appointment_check
+    node7:
+      type: "llm"
+      name: "Extract Sentiment"
+      node_config:
+        prompt: "Analyze the sentiment of the following healthcare call transcript. Respond with 'positive', 'neutral', or 'negative'."
+        input_key: "deidentified_text"
+        output_key: "sentiment"
+      next_node: "node8"
     
-    - name: home_visit_detection
-      type: llm_processing
-      input: team_classification
-      output: home_visit_suggested
-      processing_type: llm_analysis
-      description: Analyze if nurse suggested a home visit
-      prompt: "Based on the conversation, did the nurse suggest or recommend a home visit? Answer with 'yes', 'no', or 'unclear'."
-      save_to_field: additional_fields.home_visit_recommendation
-      next_step: care_plan_extraction
-    
-    - name: medication_adherence_check
-      type: llm_processing
-      input: team_classification
-      output: medication_status
-      processing_type: llm_analysis
-      description: Check patient medication adherence
-      prompt: "Extract information about medication adherence. Did the patient report taking medications as prescribed?"
-      save_to_field: additional_fields.medication_adherence
-      next_step: adverse_events_detection
-    
-    - name: followup_appointment_check
-      type: processing
-      input: team_classification
-      output: appointment_scheduled
-      processing_type: appointment_verification
-      description: Verify if follow-up appointment was scheduled
-      next_step: scheduling_summary
-    
-    - name: checkup_sentiment_analysis
-      type: llm_processing
-      input: routed_call_type
-      output: patient_sentiment
-      processing_type: sentiment_analysis
-      description: Analyze patient sentiment during general checkup
-      prompt: "Analyze the overall sentiment of the patient during this call. Classify as positive, neutral, or negative."
-      save_to_field: additional_fields.patient_sentiment
-      next_step: chief_complaint_extraction
-    
-    - name: general_call_summary
-      type: llm_processing
-      input: routed_call_type
-      output: call_summary
-      processing_type: summarization
-      description: Generate summary for uncategorized calls
-      prompt: "Provide a brief summary of the key points discussed in this call."
-      save_to_field: additional_fields.call_summary
-      next_step: finalize_output
-    
-    - name: care_plan_extraction
-      type: llm_processing
-      input: home_visit_suggested
-      output: care_plan_details
-      processing_type: llm_extraction
-      description: Extract care plan details from conversation
-      prompt: "Extract any care plan changes, recommendations, or action items mentioned during the call."
-      save_to_field: additional_fields.care_plan_updates
-      next_step: finalize_output
-    
-    - name: adverse_events_detection
-      type: llm_processing
-      input: medication_status
-      output: adverse_events
-      processing_type: safety_monitoring
-      description: Detect any reported adverse events or complications
-      prompt: "Identify any adverse events, complications, or concerning symptoms reported by the patient."
-      save_to_field: additional_fields.adverse_events
-      next_step: finalize_output
-    
-    - name: scheduling_summary
-      type: processing
-      input: appointment_scheduled
-      output: scheduling_details
-      processing_type: data_aggregation
-      description: Compile scheduling information
-      save_to_field: additional_fields.appointment_details
-      next_step: finalize_output
-    
-    - name: chief_complaint_extraction
-      type: llm_processing
-      input: patient_sentiment
-      output: chief_complaints
-      processing_type: clinical_extraction
-      description: Extract primary health concerns mentioned
-      prompt: "Identify the primary health concerns or complaints mentioned by the patient."
-      save_to_field: additional_fields.chief_complaints
-      next_step: finalize_output
-    
-    - name: finalize_output
-      type: processing
-      input: multiple_sources
-      output: final_structured_data
-      processing_type: output_aggregation
-      description: Aggregate all processed data into final output
-      next_step: complete
-    
-    - name: complete
-      type: exit
-      input: final_structured_data
-      output: complete_call_analysis
-      processing_type: success_termination
-      description: Successfully completed call analysis
-      next_step: null
+    node8:
+      type: "exit"
+      name: "Complete Processing"
+      node_config:
+        status: "success"
+
