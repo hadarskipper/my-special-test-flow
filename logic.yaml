@@ -11,7 +11,7 @@ tree:
     
     node2:
       type: "stt"
-      name: "Speech to Text"
+      name: "Speech to Text node"
       node_config:
         input_key: "audio_file"
         output_key: "transcribed_text"
@@ -66,4 +66,3 @@ tree:
       name: "Complete Processing"
       node_config:
         status: "success"
-
