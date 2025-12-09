@@ -39,9 +39,9 @@ tree:
       name: "Home Visit Decision"
       node_config:
         condition_key: "home_visit_recommendation"
-        condition_value: "yes"
-        true_node: "node6"
-        false_node: "node7"
+        condition_value: ["yes"]
+        next_nodes: ["node6"]
+        no_match_node: "node7"
     
     node6:
       type: "llm"
