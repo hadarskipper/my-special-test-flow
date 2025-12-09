@@ -4,7 +4,7 @@ tree:
   nodes:
     node1:
       type: "sql"
-      name: "Load Call Metadata"
+      name: "Load Call Metadata node"
       node_config:
         output_key: "call_metadata"
       next_node: "node2"
