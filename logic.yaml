@@ -11,7 +11,7 @@ tree:
     
     node2:
       type: "stt"
-      name: "Speech to Text node"
+      name: "Speech to Text node now mock"
       node_config:
         input_key: "audio_file"
         output_key: "transcribed_text"
