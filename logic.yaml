@@ -39,8 +39,8 @@ tree:
       name: "Home Visit Decision"
       node_config:
         condition_key: "home_visit_recommendation"
-        condition_value: ["yes"]
-        next_nodes: ["node6"]
+        condition_value: ["yes", "no"]
+        next_nodes: ["node6", "node11"]
         no_match_node: "node7"
     
     node6:
@@ -62,6 +62,11 @@ tree:
       next_node: "node8"
     
     node8:
+      type: "exit"
+      name: "Complete Processing"
+      node_config:
+        status: "success"
+    node11:
       type: "exit"
       name: "Complete Processing"
       node_config:
