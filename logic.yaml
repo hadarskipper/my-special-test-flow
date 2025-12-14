@@ -39,7 +39,7 @@ tree:
       name: "Home Visit Decision"
       node_config:
         condition_key: "home_visit_recommendation"
-        condition_value: ["yes"]
+        condition_values: ["yes"]
         next_nodes: ["node6"]
         no_match_node: "node7"
     
